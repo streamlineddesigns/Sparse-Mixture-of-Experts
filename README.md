@@ -1,189 +1,198 @@
-# Sparse Mixture of Experts 
-## via Unity ML Agents
+# Sparse Mixture of Experts
+How I accidentally built a Sparse MoE before I knew what it was  
 
-### Backstory
+## Backstory
 
-#### Boids
-It all started with the boids. There was a time period where I was just starting my game development career and I heard of the term "spatial partitioning" over and over again. More so, I researched "game design patterns" repeatedly and found "game programming patterns" online. This short book like website had a section in it for performance optimizations. In that section contained a subsection for spatial partitioning. It also had subsections such as data locality and object pooling. However, while I may circle back to that, I'll keep my focus on spatial partitioning for now. 
+### Boids
+It all started with boids. Early in my game development career, I kept encountering the term "spatial partitioning." While researching game design patterns, I discovered Robert Nystrom's Game Programming Patterns. A concise, web based book with a section on performance optimizations. That section covered spatial partitioning alongside topics like data locality and object pooling. I'll return to those later, but for now, my focus remains on spatial partitioning.
 
-I must have googled the term a dozen times, reading everything I could about it. Yet, I lacked the confidence to ever attempt an implementation myself. Interestingly enough, I probably could've told you everything about spatial hash's and quad trees, and yet I viewed myself as a novice so I assumed it was beyond the realm of possibility for me to create it myself. Plus I had never seen an actual implementation of one so it was difficult to put the pieces into practice.
+I must have googled the term a dozen times, reading everything I could find. Yet I lacked the confidence to attempt an implementation myself. Ironically, I could probably have explained spatial hashes and quadtrees in detail, but I viewed myself as a novice and assumed implementation was beyond my reach. Having never seen working code didn't help. It was difficult to translate theory into practice.
 
-That is until one day that I was pressing forward with the concept of Boids. A flocking simulation algorithm created by the likes of one Craig Reynolds. The idea was simple, to create realistic looking flocks of birds, you would compare a bird to all other birds in its flock. Initially, birds would fly random directions, yet, the algorithm ensured flocking behavior. It did this by utilizing the average direction of the flock, and by using K-Nearest Neighbors to influence the birds direction even further. While a bird could individually influence its own direction, the algorithm ensured the birds decision was influenced by both nearby birds, and the flock as a whole. 
+That changed when I started exploring boids: a flocking simulation algorithm created by Craig Reynolds. The concept is elegant. To create realistic looking flocks, each bird compares itself to others in its flock. Birds initially fly in random directions, but three simple rules ensure emergent flocking behavior: separation (avoid crowding neighbors), alignment (steer toward the average heading of neighbors), and cohesion (move toward the average position of neighbors). While individual birds influence their own direction, the algorithm ensures each decision is shaped by both nearby birds and the flock as a whole.
 
-Now in terms of performance, this algorithm was a bit lacking. No offense to Craig Reynolds, he did enough by creating the algorithm itself. It's a magnificent one. Anyways, big O notation would describe it as an O(n^2) complexity operation per flock update. Rather, as the size of the flock grew, so too did the number of operations required to keep the simulation running. A mere 10 birds required 100 computations, while 100 birds required 10,000 computations.. and 10k birds, well that would require 100m calculations. 
+In terms of performance, however, this algorithm is expensive. No offense to Reynolds, inventing the algorithm was achievement enough. In Big O notation, naive boids runs at O(n²) complexity per update. As flock size grows, so does the computational burden. Ten birds require 100 pairwise comparisons; 100 birds require 10,000; and 10,000 birds would require 100 million calculations per frame.
 
-#### Spatial Partitioning
-While on the trail of learning about boids, the term spatial partitioning came up once again. Anyways, no matter how much I googled implementations of spatial partitioning, I struggled to find any concrete examples. I must have spent a significant amount of time looking it up, only to come up empty handed. That is until one day I found a partially completed example of a spatial hash written in Java in some online forum. The implementation of the key lookup table was remarkably simple. However it utilized some math that didn't make sense to me. I decided to put everything together that I had known up to that point to determine how this spatial hash might work in a concrete example.
+### Spatial Partitioning
+While learning about boids, spatial partitioning resurfaced. No matter how much I searched, I struggled to find concrete implementations. I spent significant time coming up empty until one day I found a partially completed spatial hash written in Java on some obscure forum. The key lookup table implementation was remarkably simple, though it used math I didn't immediately understand. I decided to work through a concrete example to figure out how it might work.
 
-First I drew out a grid on paper in a positive-integer only plane and labeled its coordinates and Key ID's. Key ID 1 being the upper left hand corner and going up from there. The first row as 1-3, the second 4-6, and the third 7-9. So it was simply a grid and the Key's were 1-9. Then I listed a set of random 2D vectors that could be placed inside this grid. I noted that in order to map 2D vectors to Grid ID's, some math would be necessary. I also noticed that the X,Y coordinates would greatly determine what Key ID they were assigned to. In fact, the X coordinate would determine the row the Y would determine the column. Translating this to ID's was straightforward. Scaling was also necessary to ensure a factor of any cell size could be used. I can't remember the exact formula I used for this off the top of my head but it was really straightforward. However, it came out different than the example math I seen but it seemed similar enough and it always worked in practice. 
+First, I drew a grid on paper in the positive integer quadrant, labeling coordinates and cell IDs. Cell ID 1 occupied the upper left corner; the first row contained cells 1–3, the second row 4–6, and the third row 7–9. Then I listed random 2D vectors that could fall within this grid. To map vectors to cell IDs, I needed to determine which row and column each point belonged to. The x coordinate determined the column; the y coordinate determined the row. Translating this to IDs was straightforward once I factored in cell size for scaling. The exact formula escapes me now, but it was simple. Different from the example I'd found, yet it worked in practice.
 
-In fact, I had a boids simulation coded up all ready before I began this adventure into spatial partitioning. So I simply modified the nearest neighbors portion of the boids to do insertions and lookups. I then stopped updating every frame and chose every x number of frames. Loading in 1000 boids became instantly possible.
+I already had a boids simulation running, so I modified the nearest neighbors portion to use insertions and lookups against the spatial hash. I also stopped updating every frame, instead updating every n frames. Suddenly, 1,000 boids became instantly possible.
 
-Before I continue, it should be noted that, I once heard it mentioned; a golden rule of programming was that any O(n^2) operation could be reduced to O(n) with the usage of a dictionary rather than an array. Which made no sense to me at the time. So when I was coding up the implementation of the spatial hash, the key lookup was important. However, the data structure for the key lookup was equally important. A dictionary was chosen because I knew key:value mapping was O(1). Which meant retrieving nearby neighbors could effectively become O(1) if the K in KNN was ignored ie ANN. Or O(n) whereby n was realistically pretty small either way. In this example, the golden rule really clicked for me. No longer was the boid implementation O(n^2). However, most would agree than in practice it becomes O(n(log(n))) due to the fact that n insertions are required every frame ie n and log(n) because of the reduced search in KNN. 
+Before continuing, I should mention something I once heard: a golden rule of programming is that any O(n²) operation can often be reduced to O(n) by using a hash map instead of nested array iterations. This made no sense to me at the time. But while implementing the spatial hash, it clicked. The dictionary's O(1) key value lookups meant retrieving nearby neighbors could become effectively O(1) if I used approximate nearest neighbors rather than exhaustive K nearest neighbors. In practice, most agree the full implementation becomes O(n log n): n insertions per frame, with a reduced search space for neighbor queries.
 
-#### Spatial Hash
-Now it should be noted that while I played around with my original Key ID lookup, I wrote a new implementation rather quickly. This implementation was much easier to understand. I had went back to my math when I remembered it only worked in positive integer space and got frustrated in adopting it for negative integers too. So basically, I turned a Key ID into a vector. It really made sense when I considered the fact that all the X,Y coordinates influenced the Key ID lookup. Why not just "snap" the coordinates to an ID? If a whole integer was observed, it was divided by cell size. Lets say cell size was 10 units for simplicity's sake. So X:50,Y:-30 became Key ID 5,-3. Same with X:55.5,Y:-33.3 for example because everything was then snapped to a whole number only after the division. This became my defacto-standard for spatial hashing. 
+### Spatial Hash Refinement
+While my original key ID formula worked, I eventually rewrote it. I'd designed it for positive integer space only, and adapting it for negative coordinates proved frustrating. My solution was to turn the key ID into a vector. Since x and y coordinates already determined the lookup, why not simply "snap" coordinates to a grid cell?
 
-#### Collision Detection
-While playing around with these experiments, I was also a contractor for the company Color Switch. And coincidentally enough, I was working on a major problem for the game around that time. What problem do most mobile game's have? Lag. This was true for Color Switch too. I had attempted to tackle this problem a number of times, whereby each attempt yielded some positive results in the right direction, but never removed lag completely in low end mobile device benchmarks.
+The approach: divide each coordinate by cell size, then truncate to integers. With a cell size of 10, the point (50, −30) maps to cell (5, −3). The point (55.5, −33.3) also maps to (5, −3) after division and truncation. This became my go to method for spatial hashing.
 
-One fateful day I was sitting up at my desk late at night and profiling the games performance. I noticed something unusual that for whatever reason hadn't stuck out to me before. Collision detection was spiking CPU usage at various points in time. More specifically, when a group of circles were being passed by the player, the spikes would occur. I had never noticed this before so I looked further into it. The circles utilized polygon colliders to ensure their exact shapes were shown correctly. For each circle, 4 colors were used, and 4 polygon colliders were needed. Each polygon collider utilized 20 points to have a consistent collider shape.
+### Collision Detection
+Around this time, I was contracting for Color Switch. Coincidentally, I was tackling a major problem: lag on low end mobile devices. I'd made several attempts, each yielding incremental improvements, but never eliminating lag entirely.
 
-For a level that had plenty of circles, this appeared to be a major problem. Lets take one particular obstacle as an example. A complex obstacle could have circles inside circles, and then circles stacked on top of it. One in particular had 3 circles inside each other, and 4 stacked in a row. 3 circles X 4 Colliders each is only 12 polygon colliders. 4 of these stacked in a row is simply 48 colliders. However, 48 polygon colliders x 20 points each is 960 points. These points were used in the real time collision detection. Hmm, it seems that I had stumbled into a problem statement that could then be addressed. CPU performance spikes were occurring while a large number of polygon colliders were in a level the player was in.
+One late night, while profiling performance, I noticed something I'd overlooked: collision detection was spiking CPU usage at specific moments. Specifically when the player passed groups of circles. Each circle used polygon colliders to match its visual shape precisely. Every circle had four color segments, meaning four polygon colliders, each defined by 20 vertices.
 
-How did I propose a solution to this issue? Spatial Partitioning of course. Rather, all obstacles in a level were inserted into a spatial hash. Then the 1NN obstacle was determined via this spatial hash. Afterwards, obstacle collider coordinates (not points) were placed into another spatial hash. Which then a search was run against for KNN. The colliders that were returned from this were then subsequently enabled. All other colliders were disabled besides these. This yield substantial performance gains. On low end devices, gains were night and day. When testing out any of the levels in the game that contained numerous circles (which there was a high number of but typically only in higher levels), performance was incredible! Instead of lagging the phone, they were finally playable! 
+For levels with many circles, this became problematic. Consider a complex obstacle: circles nested inside circles, stacked in a row. Three nested circles times four colliders equals 12 polygon colliders. Four such stacks means 48 colliders. At 20 vertices each, that's 960 vertices participating in realtime collision detection.
 
-In fact, even on a mid range gaming PC, these gains were noticeable. In a stress test scene, only 30 of the previously mentioned obstacles would run in editor, in scene, before performance degraded to becoming unplayable. This was before the performance update. After the integration of the spatial hash for Collision Detection, hundreds of these obstacles could be enabled at a time without any performance loss!
+My solution: spatial partitioning. I inserted all obstacles into a spatial hash, identified the nearest obstacle to the player, then inserted that obstacle's collider coordinates into a second spatial hash. A KNN query returned the relevant colliders, which I enabled; all others remained disabled.
 
-#### Procedural Content Generation
-While the previous project was indeed something I was quite fond of, another project to tackle became relevant. The idea of procedurally generating levels for the game Color Switch. The number of times I had to go back to the drawing board for this project was wild. However, from beginning to end it seems pretty straightforward. So basically, levels in the game are either easy, medium, or hard. They also contain a number of obstacles per level. Each obstacle has its own unique configuration with colors, colliders, names, etc. Levels also were unique as well. Determining what obstacles to place in a level required the manual oversight of a level designer.
+The performance gains were dramatic. Low end devices went from unplayable to smooth. On a mid range PC, my stress test scene previously capped at 30 complex obstacles before becoming unplayable. After integrating spatial hashing, hundreds of obstacles ran without performance loss.
 
-#### Obstacle Encoding
-In order to get down to business on this project, a lot of analytical thinking was required. In order to work with obstacles for example in an algorithm, it was considered that they needed to be "encoded" into a usable format. Rather than utilizing say the name's of an object, something else was required. So a simple solution was proposed. Rather than reference the obstacles by name, they would become referenced by ID. Not just any ID but a char. This was chosen for a reason that will become apparent shortly. Simply put, every obstacle was given a simple ID 1-3000 for example. This number was then cast to a char. Each obstacle now had a unique single character representation of itself that was also computable as a number.
+### Procedural Content Generation
+Another project emerged: procedurally generating levels for Color Switch. The number of times I returned to the drawing board was staggering, though the final solution seems straightforward in retrospect.
 
-#### Level Encoding
-Levels simply became the concatenation of its obstacle encodings. So it looked more of less like a sequence of letters to represent each level.
+Levels in Color Switch are categorized as easy, medium, or hard, each containing a specific number of obstacles. Each obstacle has unique configurations: colors, colliders, names, and more. A level designer manually determined which obstacles appeared in each level.
 
-#### Similarity Scoring
-Remember when I said the reason why a char was chosen would become apparent? Well here's why. When a level was going to be generated, I was told it would require that it would be unique compared to all other levels. It could not be identical or even closely resemble another level. So in order to ensure this, I coded up a similarity scoring algorithm. Number of common characters, longest common substring, & longest common sub sequence are 3 popular algorithms for doing similarity scoring between words. Rather than choose one of them, I used all three and gave them equal weighting in a weighted average. This resulted in a pretty nice little algorithm. From here, all obstacles were encoded into representations, those were concatenated per level to create level representations, and viola; each level representation was compared to all other level representations and their percentage of similarity was computed. 
+### Obstacle Encoding
+Automating this required analytical thinking. To use obstacles in an algorithm, I needed to encode them into a computable format. Rather than referencing obstacles by name, I assigned each a numeric ID (1–3000), then cast that ID to a character. Each obstacle now had a single character representation that was both human readable and computationally useful.
 
-In fact, the 1NN was always revealed for each level such that most similar level would always be known, along with their percentage of similarity - per level.
+### Level Encoding
+Levels became concatenations of their obstacle encodings. Esentially sequences of characters representing each level's composition.
 
-#### Difficulty Scoring
-Now a level was able to be been created, by randomly choosing obstacles to place per level. Then was done in a loop until a level of low similarity was produced. One major issue with this was that the difficulty of a level was also random. Which was undesirable considering that levels were grouped via easy, medium, and hard. 
+### Similarity Scoring
+The character encoding enabled similarity scoring. Generated levels needed to be unique, not identical or even closely resembling existing levels. I implemented three string similarity algorithms: number of common characters, longest common substring, and longest common subsequence. Rather than choosing one, I combined all three in a weighted average. Each level's representation was compared against all others, producing a similarity percentage. The most similar level (1 nearest neighbor) and its similarity score were always available for each level.
 
-To combat this issue, I wanted to assign difficulty scores to each obstacle, then sum them per level. This seemed like it would produce difficulty scores per obstacle & per level. However, how this would be possible was more a matter of question and less a matter of solution. At that time, the project didn't have much end in sight so it was put on hold.
+### Difficulty Scoring
+Levels could now be generated by randomly selecting obstacles until a low similarity candidate emerged. But this made difficulty random. Which was problematic since levels were grouped by difficulty.
 
-#### Neural Networks
-You know, I had a friend tell me once that all neural networks were, are simply "graphs". They then asked me if I knew what graphs were. I didn't know a ton about them except the basics. However, with that conceptual model in mind, I took to google once more and decided to simply look it up. This led me to the concept of the multi layer perceptron. I chose to learn about perceptrons first. The basic building blocks of a traditional feed forward neural network. It turned out, the underlying math behind the perceptron was basically just y=mx+b. Who would've thought!? The same equation everyone joked about never needing, well it turns out its everywhere. 
+I wanted to assign difficulty scores to obstacles, then sum them per level. But how? The project stalled.
 
-Training even a simple perceptron via gradient descent was beyond my capabilities at the time. So I turned to another option: Genetic Algorithms. The concept was simple enough. You take your weights in your perceptron and you "evolve" them by randomly initializing sets of weights, then cross splicing them together. Eventually, this yields a set of weights that minimize error over time. In practice this looks like multiple random arrays of values that are simply being cross spliced together. Then either batches of, or an entire dataset, is passed through the resulting perceptrons (with the spliced arrays acting as weights) and the ones which minimize the error the most are kept while the rest are discarded. Eventually this leads to a perceptron which can consume a set of input and then output correct corresponding values.
+### Neural Networks
+A friend once told me neural networks are just "graphs" and asked if I understood graph theory. I knew the basics. With that mental model, I researched further and discovered the multilayer perceptron. I started with single layer perceptrons ie the building blocks of feedforward networks. The underlying math was essentially y = mx + b. The same equation everyone jokes about never needing turns out to be everywhere.
 
-#### Multivariate Linear Regression
-It was easy to see how this exact problem in this sense was merely Multivariate Linear Regression. An equation looking something like the following: y=mx1 + mx2 + mx3 + b for example. Now with this concept in mind, I had an idea. What if I returned to the procedural content generator and utilized this somehow?
+Training via gradient descent was beyond me then, so I turned to genetic algorithms. The concept: randomly initialize weight arrays, cross splice them, evaluate fitness, keep the best performers, discard the rest. Eventually, this yields weights that minimize error. In practice, batches of data pass through perceptrons with spliced weight arrays, and those minimizing error survive to the next generation.
 
-#### Feature Vectors 
-Another example of analytical thinking that was employed for the PCG project was the fact that obstacles unique configurations were viewed as data points. Remember how each obstacle had unique colors, colliders, names, etc. Well these configurations were seen not just as ordinary data points, but they were translated into feature vectors. Whereby the presence & count of each data point was loaded into a multidimensional representation of each obstacle. This was in turn min-max scaled to normalize its magnitude. The resulting representation was known as a feature vector. It was in fact another representation of each obstacle. These representations were desirable. Because what goes into a neural network? Feature vectors.
+### Multivariate Linear Regression
+This framing made the connection to multivariate linear regression obvious: y = w₁x₁ + w₂x₂ + w₃x₃ + b. I wondered if I could apply this to the procedural content generator.
 
-Considering that each obstacle now had a feature vector associated with it, I considered the idea of utilizing Multivariate Linear Regression to solve the problem of difficulty scoring. Simply put, a weight vector of equal length with the feature vector was considered. Whereby the normalized values in the feature vector could merely be multiplied with the weights in the weight vector, then a bias term could be added. ie similar to a perceptron. 
+### Feature Vectors
+I viewed each obstacle's configuration as a data point. Colors, colliders, names, etc these became feature vectors: multidimensional representations where each dimension captured the presence or count of an attribute. I min-max scaled these vectors to normalize magnitudes. Neural networks consume feature vectors, and now each obstacle had one.
 
-#### Reinforcement Learning
-You know, at this point I was pretty excited about the idea that I had reliable input for a perceptron. I also had an idea of what the output was going to be. In fact, I wanted the perceptron to consume an obstacles feature vector, and then output corresponding difficulty scores per obstacle. 
+With feature vectors in hand, I considered multivariate linear regression for difficulty scoring. A weight vector of equal length could multiply against the normalized feature vector, with a bias term added essentially a perceptron.
 
-However, I had no explicit target values to be learned like in a traditional supervised learning sense. I also had no "score" that could be learned like in a reinforcement learning setting. However, I did know one thing that I did have. An order of levels which were all ready decidedly in order based on difficulty. This got me thinking that if I could somehow incorporate a relationship between obstacles and levels, that I'd have my answer.
+### Reinforcement Learning
+I had reliable inputs for a perceptron and a clear output goal: difficulty scores per obstacle. But I lacked explicit target values for supervised learning or a reward signal for reinforcement learning. What I did have was an existing ordering of levels by difficulty.
 
-This problem was actually not to difficult to come up with a solution for. If obstacles had a difficulty score, and the summation of all obstacle difficulty scores would produce a level difficulty score - then it would be as follows: A genetic algorithm could be used in a reinforcement learning environment whereby its scored by how close level order becomes after difficulty scores were learned!
+If obstacle difficulty scores summed to level difficulty scores, then a genetic algorithm could optimize weights by scoring how closely the predicted level order matched the true order. A reinforcement learning setup, scored by ordering accuracy.
 
-So before I threw together a training environment, I got everything ready as far as the feature vector and weighted vector were concerned. I then plugged random values into the weighted vector and viola; a percentage of accuracy was output. Something like 15 percent the first run. I added a random seed function to the perceptron and it worked like a charm. I watched as random level orders were determined and the percent of accuracy would vary. I even went on to try and hand tune the weights and achieved something around 35 percent accuracy. 
+Before building the training environment, I prepared the feature and weight vectors, plugged in random values, and observed: 15% accuracy. Adding a random seed and watching accuracy vary confirmed the setup worked. Hand tuning weights achieved around 35%.
 
-At this point I was getting pretty dang excited. When I finally got the training environment setup, it was simply splicing arrays, keeping the best performing perceptrons and discarding the rest. I watched in real time as the percentage would climb and climb. Until maxing out at about 70 percent or so. 
+When the training loop ran ie splicing arrays, keeping top performers, I watched accuracy climb. It plateaued around 70%.
 
-#### Difficulty Curve
-In order to make usage of the similarity scoring solution & the obstacle difficulty scoring, they were combined in what started as a simple loop, but ended in some apparent sophistication. 
+### Difficulty Curve
+To generate levels, I combined similarity scoring with difficulty scoring. After training, I observed minimum and maximum level difficulty scores per game mode (Color Switch has several). Target obstacle counts were also known.
 
-Basically, a minimum and maximum difficulty level score were observed after training the perceptrons. Color Switch has a number of modes so multiple perceptrons were trained on their corresponding datasets. Target obstacle counts were also observed. Now in order to determine the difficulty of a desired level, it was considered that another perceptron could be used. Basically taking in a level number and outputting a difficulty score. However, it was also noted that simple easing functions would output values closely resembling the real life values when the minimum & maximum level difficulty scores & level percent was used as input.
+For determining a level's target difficulty, I considered training another perceptron mapping level number to difficulty score. But I noticed that easing functions, given min/max difficulty scores and level percentage, closely approximated real values. An easing function sufficed.
 
-So an easing function was chosen to suffice as the function to output desired difficulty scores when given a level percent. Similarly, an easing function was chosen to determine what difficulty scores of an obstacle should be used as candidates for a level. Essentially meaning that low difficulty score obstacles would end up in low difficulty score levels. While the opposite was also true. High difficulty score obstacles would end up in high difficulty score levels.
+The generation pipeline: encode obstacles into character representations, compute and normalize feature vectors, encode levels, run inference to assign difficulty scores, order levels by score, extract min/max scores, compute target level's percentage, pass to easing function for target difficulty, use another easing function to select candidate obstacles (low difficulty obstacles for early levels, high difficulty for late levels), shuffle candidates, place obstacles until target difficulty is reached, compute the new level's representation, compare against existing levels. If similarity falls below threshold, keep it; otherwise, regenerate. Loop to generate entire modes.
 
-The entire process was basically as follows: encode obstacles into encoded representations, compute their feature vectors & min-max scale them, encode levels into level representations, run inference on all feature vectors through the perceptron and assign the obstacles their corresponding difficulty score, order the levels based on these scores, pull min/max difficulty scores from the levels, choose a level to generate ie 1, compute that percentage ie 1/total level count, pass these values to an easing function to output desired difficulty score for the level, do the something along the exact same lines to select candidate obstacles, shuffle candidate obstacles, then start placing them one at a time until the target difficulty score is achieved, take the corresponding candidate level and compute a new level representation from it, then compare that level representation with all other existing levels, if it falls below a target similarity threshold its kept, if not a new level is generated again. 
+### Accidental Hypernetwork
+Meanwhile, I kept exploring neural networks. I wanted a working multilayer perceptron. The XOR function (the classic example of what single layer perceptrons cannot learn due to nonlinearity) became my test case. The perceptron failed; the MLP succeeded. I was fascinated. I must have fit that network to XOR twenty times.
 
-This entire process could be done in another loop to generate say an entire new set of levels for an entire mode!
+Wanting a more interesting application, I returned to the PCG project. Rather than replacing the perceptron, I realized the MLP could learn values for the perceptron. I did exactly that.
 
-#### Accidental hypernetwork
-Now while that was all well and good, I was still diving into neural networks in my free time. I really wanted to get a multi layer perceptron running, and well I did exactly that. You see, I learned that the basic gating function couldn't be learned by a perceptron due to the non-linearities in the relationships. Getting a training environment setup to get this to work wasn't too far off from the perceptron training environment. So I decided to try both solutions to the problem. When I hit "train" with the perceptron, it failed, when I did the same with the MLP, it succeeded! This was fascinating to me, and so it was the first function I ever fit a neural network to.. and the second, and third, all the up to the tenth and maybe even twentieth. I must have really liked seeing that 100 percent accuracy on the problem!
+Years later, I realized this fit the definition of a hypernetwork ie a network that generates weights for another network.
 
-However, that dataset was really boring and I was curious to see what else I could use my newly coded neural network for. Next thing I knew, I was returning to the procedural content generator to see if I could figure out how to swap out the perceptron and plug in the neural network. However, I noticed it would be easier just to have the MLP learn values for the perceptron and literally swap nothing out at all. So I did just that. 
+### K-Means Clustering
+Before finalizing the PCG solution, I considered K-means clustering for difficulty scoring. I'd read about its ability to cluster min-max scaled feature vectors. Part of why I'd created them. One day, without reference code, I implemented K-means clustering, including K-means++ initialization, on my first attempt.
 
-It wasn't until years later that I realized this fit the criteria to be considered a hypernetwork!
+I expected clustering to split obstacles into three groups: easy, medium, hard. Instead, the network's difficulty outputs seemed scattered. When I increased K, something remarkable happened: visually similar obstacles clustered together with striking precision. I stared at the clusters, amazed.
 
-#### K-Means Clustering
-Before the final PCG solution was determined, there was a time I was considering k-means clustering might be ideal for determining obstacle difficulty. You see, I had read about its ability to cluster datasets, especially min-max scaled feature vectors. Which was another fundamental motivation behind why the feature vectors were created for the obstacles in the first place. So at one point, I read a bit about k-means clustering. Then one day, out of the blue, I attempted to code it. Without any code examples, I got it to work on my first try. Including K-Means++ initialization. It was something I was proud of. I'm not sure why even, but it was a cool little algorithm. 
+Then I set it aside. It solved nothing for difficulty scoring.
 
-Well so I thought if I brought this into the procedural content generator, I'd witness as the algorithm just split the obstacle dataset into 3 clusters whereby one was easy, another medium, and lastly hard. Wow was I wrong. The networks output difficulty was all over the place. I chose a high number for K as another test. I was shocked by the fact that similar looking obstacles were neatly clustered together. It was so remarkable that I just stared at the clusters for a while. I was shocked by how well they were clustered.
+### Loss Function
+The neural network improved accuracy from 70% to about 85%, sometimes 87% with patience. Other modes maxed out entirely. I suspected the original Classic mode had an inconsistent difficulty curve, with hard levels occasionally being surprisingly easy.
 
-I then put it aside because it solved nothing.
+I hypothesized that labeling obvious obstacles as easy, medium, or hard, and adding a classification term to the loss function, might help.
 
-#### Loss function
-While the addition of the neural network improved the accuracy, one thing sort of bugged me a bit. Which was the 70 percent accuracy only climbed to about 85 percent. If I was patient enough, sometimes 87. Yet other modes were getting maxed out with the new network. I considered the reason was due to the fact that the original mode in Color Switch had a lot of variation in difficulty as the game was played. Not the smoothest difficulty curve, because some hard levels would randomly be super easy out of nowhere. 
+### Semi-Supervised Learning
+The outcome was fascinating: the reinforcement learning problem partially became supervised learning through additional loss terms. Accuracy rose to 92%. More importantly, levels consistently matched their target difficulty. That extra signal went a long way. I considered the PCG project complete.
 
-Now I didn't really know how to solve this problem but I had an idea that it would be possible to label or annotate obstacles as easy, medium, and hard. As well as add a term to the loss function that considered correct obstacle difficulty categorization. I figured if I labeled some of the obvious obstacles then it would solve the problem. 
+### Machine Learning Bots
+I decided to test my skills further. A Color Switch executive was meeting a potential investor abroad. Many companies perceived increased value where machine learning existed. We already had ML for level generation.
 
-#### Semi-Supervised Learning
-Well that wasn't entirely the outcome, but it was fascinating to see that the RL problem partially became a supervised learning problem! Simply due to the additional terms added to the loss function. I watched as the network started to produce 92 percent accuracy. While this wasn't a huge leap, it was consistently producing levels more suited to their difficulty. That extra bit of signal seemed to go a long ways. It was at this point that I considered the procedural content generator project completed and left it there.
+I wanted to go further. Rovio Studios was combining procedural generation with ML bots to test levels. A natural next step for Color Switch.
 
-#### Machine Learning Bots
-I decided to put my newly developed skills to the test. Basically, I learned that an executive at Color Switch was going to be traveling to another country and meeting with a potential investor. This piqued my interest because I saw an opportunity. The way I seen it, many companies perceived value grew where there was machine learning. We all ready had some machine learning for level generation.
+I dove deeper into reinforcement learning, though I started simpler. If genetic algorithms could train networks to play Flappy Bird, they could work for Color Switch. I assumed this would be quick.
 
-However, I wanted to take it a step further. At the time I had heard about how Rovio Studios was combining procedural level generation with machine learning bots to make and test new levels for users. Naturally, I assumed this would be a next good step for where I left off with Color Switch. 
+I was wrong.
 
-I started by learning more about reinforcement learning. However, the direction I decided to go was a bit more simplified than what I was learning. I figured if people could train neural networks to play flappy birds with genetic algorithms, then that'd be my first stop with Color Switch. I assumed this would be a quick win considering that I had all ready successfully trained networks for PCG. Wow, what a surprise, I was totally wrong!
+I tried reinforcement learning with neural networks, then behavioral cloning via imitation learning.
 
-In fact, I actually tried reinforcement learning with the neural networks, and then behavioral cloning via supervised learning. Or more correctly put, in this context its referred to as imitation learning. 
+Watching RL bots evolve was satisfying. When a bot first passed a level, I was startled. But performance plateaued. Bots couldn't surpass a certain score.
 
-Watching the RL bots evolve and play Color Switch was tremendously satisfying and there was even one point when I watched a bot pass a level for the first time and I was shook. It was startling to see with my own two eyes. However, they seemed to really struggle after a certain point and didn't get much better than achieving a certain high score. 
+### Imitation Learning
+I tried behavioral cloning: collecting observations (similar to Unity ML-Agents raycasting, but detecting color instead of object tags) paired with my actions while playing.
 
-#### Imitation Learning
-So I decided I'd give behavioral cloning a try and simply collected a dataset of input observations made by the bot, and output actions. The input observations were similar to unity ml agents raycasting. Albeit they had the caveat that they saw color instead of game object tags. With this in mind the dataset was those observations, plus the actions I took while playing. 
+Getting this right required experimentation. At any moment, the optimal action depended on player velocity. Jumping might be correct at low velocity, wrong at high velocity. I didn't initially include velocity data. It took a year before I noticed Unity's ML-Agents documentation highlighted the importance of spatio temporal features; player velocity being one.
 
-This part was a bit difficult to get correct and I had to play around with it for a bit. That's because at any given point in time, an input observation might lead to one action or another, dependent on how fast the player was moving. Simply put, in one scenario an action would be ideal such as jumping if the players velocity was low. While in another scenario it was more likely to not jump. It took a while for me to learn that this data was important to feed into the network. These earlier networks never had player velocity data. Spatio-temporal features weren't my strong suit at that time. In fact, it wasn't until at least a year or so later that I learned their relevance. Thank you Unity for pointing out its importance in the ML Agents documentation. It was a while until I noticed it but it helped lead me in the right direction.
+With velocity included, the imitation learning bot outperformed my RL bot. A pure feedforward network scored around 40 before losing. Remarkable for an early attempt.
 
-Anyways, that astonishingly resulted in a bot that could do better than my first RL bot. Again, just a pure feed forward neural network doing the heavy lifting here. I would train the network with the dataset and place the resulting model in the game, wire it into the bot, and bam. It would play the game and get to about a score of 40 and then lose. It did remarkably well being that it was an early attempt.
+### ML-Agents
+I watched a video where someone discussing boids and spatial hashing trained LSTM networks using the NEAT algorithm. LSTMs seemed better suited for this temporal problem.
 
-#### ML Agents
-I watched another video where someone who had previously discussed boids & spatial hashing, was making a video about machine learning. They were utilizing LSTM networks and using the N.E.A.T algorithm. It got me thinking that LSTM's would be more well suited for solving this problem.
+I switched to Unity ML-Agents. Color Switch runs on Unity, making it an obvious choice. LSTMs were available, and training used Proximal Policy Optimization (PPO).
 
-That's when I decided to jump into Unity ML-Agents. Since Color Switch is made with Unity, it seemed like an obvious next choice. LSTM's were one of the options for networks in ML Agents. The next 5 months of my life were interesting. 
+The next five months were intense.
 
-I decided to continue to use the same input observations in the network. I chose something like 128 observations. Along with 32 time steps for the LSTM. Considering that the training process utilized the Proximal Policy Optimization (PPO) algorithm, I had high hopes. I trained a series of bots using LSTM models and sadly enough, they basically were just on par with the imitation learning bot I put together. I couldn't believe it! In fact, it seemed that every LSTM network I trained would learn how to pass some obstacles but would then fail at passing any other obstacles. It was so frustrating to see as each subsequently trained network learned how to pass different sets of obstacles.
+I used ~128 observations with 32 timesteps for the LSTM. I trained multiple bots. Frustratingly, they merely matched my imitation learning bot. Each LSTM learned to pass certain obstacles but failed on others. Subsequent training runs learned different subsets; never achieving general competence.
 
-#### Ensembles
-I had read about the usage of ensembles to get networks to train to higher degrees of accuracy. I knew that ensembling was a technique whereby multiple machine learning model's predictions could be averaged together. This would always yield higher accuracy as long as each network themselves did better than say 50 percent. Some golden rule like that. 
+### Ensembles
+I'd read that ensembling (averaging predictions from multiple models) consistently improves accuracy when individual models exceed 50% accuracy.
 
-I decided to attempt to create an ensemble and see how this would work in relationship to the machine learning bots. Basically, I figured if I trained some LSTM's independently, I could simply slap them all together and run inference on them all, then do a weighted average of all their outputs. 
+I trained multiple LSTMs independently, planning to average their outputs with learned weights.
 
-#### Accidental Sparse Mixture of Experts
-However, this isn't exactly how things went. You remember how I mentioned how nicely K-Means clustering segmented the obstacle feature vectors by similarity? Well I decided it would only make sense to train ensembles via clusters. That is to say, I decided I'd train one ensemble per cluster of obstacles. An ensemble of ensembles is how I seen it.
+### Accidental Sparse Mixture of Experts
+But that's not quite what happened. Remember how K-means beautifully clustered obstacles by feature similarity? I decided to train one ensemble per cluster. An "ensemble of ensembles."
 
-I figured each ensemble could be referenced via cluster ID. Then at inference time, input observations could be routed to their corresponding cluster ID. I always figured I'd use raw observations, collect a dataset, and cluster those, however I liked the idea of utilizing the pre-computed obstacle feature vectors. I did one day return to the idea of clustering raw observations but that was a couple years down the road.
+Each ensemble was referenced by cluster ID. At inference, observations were routed to the corresponding cluster. I'd considered clustering raw observations but liked using precomputed obstacle feature vectors. (Years later, I did try clustering raw observations.)
 
-So at the time I simply pre-computed the clusters and loaded them into a look-up table. Then the router simply did a 1NN lookup between obstacles and ensembles. I just passed the 1NN into the cluster look up table and retrieved a cluster ID. Then inference was run on the corresponding ensemble. I didn't know it at the time, but this was not what an ensemble looks like. In fact, I had created a sparse mixture of experts without even realizing it. Yet I considered it an "ensemble of ensembles".
+I precomputed clusters, loaded them into a lookup table, and routed via 1 nearest neighbor between obstacles and clusters. Input went to the matching ensemble.
 
-At the time, I viewed this technique as essentially doing spatial partitioning because it decomposed the networks input by feature vector distance. Whereby obstacle feature vectors of close distance were processed together, and by one ensemble. And obstacles of further distance were processed by different ensembles. Later on I learned about the manifold hypothesis and I came to the conclusion that this "ensemble of ensembles" was essentially disentangling the manifold in a high dimension before the network had to learn the manifold in a lower dimension. 
+I didn't realize it then, but this wasn't a traditional ensemble. I had accidentally created a sparse mixture of experts. I still called it an "ensemble of ensembles."
 
-Still, even with the utilization of a sparse mixture of experts, it seemed that some obstacles were difficult for this bot to pass. Namely obstacles whose speed randomly changed. In fact, it was the spatio-temporal features, spurious correlations, and long range dependencies that created an inherent line in the sand. Even with this architecture, the bots couldn't reach anything near superhuman performance.
+I viewed this as spatial partitioning in feature space: obstacles with nearby feature vectors were processed by the same ensemble; distant obstacles went to different ensembles. Later, learning about the manifold hypothesis, I concluded this architecture disentangled the manifold at a high level before networks learned lower dimensional representations.
 
-On a side note, I really liked training this bot because it also meant if a cluster got a new obstacle, only one ensemble would need to be retrained. Or if a network in an ensemble underperformed, only that network would need to be retrained too! Which was all done independently of training any other network. In fact, ensembles were trained in parallel. One ensemble per server. Because while I trained on a local machine at first, I eventually trained everything on GPU servers.
+Even so, some obstacles remained difficult, particularly those with randomly changing speeds. Spatio-temporal features, spurious correlations, and long range dependencies created hard limits. The bots couldn't reach superhuman performance.
 
-#### Emergent Generalization
-However, one thing important stood out. While the LSTM's could only learn how to pass a limited subset of obstacles, and would then fail on the remainder - the Sparse Mixture of Experts did not experience this issue. I heard it stated once that it wasn't just the measure of accuracy to which a machine learning model could make predictions that made it successful. It was also its ability to generalize. 
+One practical advantage: if a cluster gained new obstacles, only one ensemble needed retraining. Underperforming networks within an ensemble could be retrained independently. Ensembles trained in parallel, one per server. First locally, eventually on GPU servers.
 
-When I took the resulting Sparse MoE equipped bot and placed it in a new but similar mode to Classic in Color Switch, it played it like it was playing Classic. Something none of the other networks had ever achieved. In fact, it could play 5 different modes. 
+### Emergent Generalization
+Something important stood out. Individual LSTMs learned to pass limited obstacle subsets, failing on the rest. The sparse mixture of experts didn't have this problem.
 
-#### Chat-GPT 4 Leak
-It wasn't until the Chat-GPT 4 architecture leak that I discovered I had in fact created a Sparse Mixture of Experts. I heard about the leak and figured I'd read it simply to learn how an advanced setup like that worked. 
+I once heard that a model's success depends not just on accuracy but on generalization. When I deployed the sparse MoE bot in a new mode similar to Classic, it performed as though it had been trained on Classic. No previous architecture had achieved this. It could play five different modes.
 
-It was a interesting moment. As I read the article, it described how a sparse mixture of experts operated in the context of multi-headed attention. It became instantly clear that the architecture I'd developed seemed to have a bit in common with it. At least on a high level considering that my bot utilized LSTM's and not self attention mechanisms. So in fact, they were quite different but the high level architecture had some cool similarities!
+### The GPT-4 Leak
+I didn't realize I'd built a sparse mixture of experts until the GPT-4 architecture leak. Reading it to understand how advanced systems worked, I encountered the sparse MoE description in the context of multi head attention.
 
-#### Theoretical
-Some time later something finally clicked for me. It's going to sound straightforward but on a fundamental level it was sort of overlooked. The part where the "ensemble of ensembles" utilizes a weighted average in their output seems kind of like how a multi-headed attention layer works. Minus the fact that in a transformer, a down projection matrix ie W_o is used to take the concatenated input between all attention heads and project it back to its original dimension size. Supposedly averaging makes it lose some of its expressiveness due to equal weighting so the down projection matrix is desirable. This makes sense. 
+It clicked. My architecture shared high level similarities, though mine used LSTMs, not self attention, making them quite different in implementation.
 
-#### Weighted Average
-However, I came to a conclusion while looking at the precise output the "ensemble of ensembles" were producing before the weighted average function.. In my sparse MoE implementation, each network has a chance to produce an output and simply 1 weight per network was enough to modify the network in a number of ways. Anything from 1 network getting all the vote, to a mixture of all the networks vote being utilized. While the W_o matrix seems like its likely important, I've come to learn this is basically all that matrix learns. It's some advanced combination of the concatenated inputs to produce a final output. 
+### Theoretical Connections
+Something finally clicked later. The "ensemble of ensembles" used weighted averages on outputs, similar to how multi head attention combines head outputs. Transformers use a down projection matrix (W_o) to project concatenated attention heads back to the original dimension. Averaging supposedly loses expressiveness due to equal weighting, making the learned projection preferable.
 
-Yet, it seems like its just a weighted average of them all when all is said and done. I'm not too convinced that the entire W_o Matrix couldn't simply be swapped out with a set of weights. 1 weight per attention head. This seems like it'd come with some interesting properties. In the sense that an entire expert could be fine tuned with something like a few thousand weights after leaving an entire LLM frozen besides the set of weights used in the averaging. However, I'll add one more caveat to this in a moment.
+### Weighted Average
+Examining my sparse MoE's outputs before averaging, I noticed: each network produces an output, and a single weight per network can modify behavior significantly; from one network dominating to all networks contributing equally.
 
-I only come to this conclusion because that's how the network I used was setup. In fact, it was setup sort of the like a perceptron in the PCG project. Likewise, a hypernetwork was able to learn the weights whereby the original observation values could later on be used to learn a more precise weighted average. In fact, those weights were created as a solution to create "non-naive bagging". A really straightforward solution in fact for fine-tuning a final network.
+While W_o matrices likely matter, I suspect they primarily learn sophisticated weighted combinations of concatenated inputs. It seems plausible that the entire W_o matrix could be replaced with one weight per attention head. Enabling fine tuning of experts with a few thousand weights while freezing the rest of the LLM.
 
-#### Routing Mechanism
-The routing mechanism was also designed as a 1NN classifier and it was also intended for further fine tuning purposes. In fact, the router was always a bit of an optimization because it did cached computations instead of anything else. And the best performing results actually modified the obstacle feature vectors such that before clustering, only the obstacles name's were used in the feature vector creation. Adjectives & Nouns were all that comprised the obstacles names. Meaning that Adjectives & Nouns were basically what enabled binding affinity between feature vector and clusters. 
+I reach this conclusion because my network used exactly this setup, similar to the PCG project's perceptron. A hypernetwork learned these weights; original observation values could later refine the weighted average. These weights implemented "non naive bagging", a straightforward solution for fine tuning.
 
-Importantly, it should be noted that similar binding affinity is used in Transformer style MoE's. In fact, when the deepseek MoE paper came out I was kind of astounded that the router was actually talked about and the word "centroids" were mentioned as identifiers per expert. The only thing Open AI mentioned about their router to date was that it was "simple". Anyways, another odd area of overlap. However, one thing was mentioned that seemed strange to me. The centroids were "learned" embeddings which input embeddings would have binding affinity to via cosine similarity I believe. Not quite the same euclidean distance or pre-computed centroids I used but still interesting to note. 
+### Routing Mechanism
+The router was a 1 nearest neighbor classifier (later re-designed for fine tuning). It used cached computations as an optimization. The best results came from modifying obstacle feature vectors to use only obstacle names before clustering. Names consisted of adjectives and nouns, which determined binding affinity between feature vectors and clusters.
 
-#### Fine-Tuning
-However, this is when it got interesting. You see, if binding affinity is all that was used to route input to an expert via a cluster ID, then it seems that fine tuning in a Transformer MoE would be similar to fine tuning an "ensemble of ensembles". 
+Similar binding affinity appears in transformer style MoEs. The DeepSeek MoE paper discussed routers explicitly, mentioning "centroids" as expert identifiers. My approach loosely echoing theirs. OpenAI described their router only as "simple." DeepSeek's centroids were learned embeddings with binding affinity computed via cosine similarity (different from my Euclidean distance and precomputed centroids, but conceptually related)
 
-Learning the weighted average was done with a hypernetwork, and training the router, was just a linear projection layer that enabled the 1NN classifier to learn to route to any expert. In an LLM this could be the same, albeit the input into the expert would still be the original embeddings rather than a modified one.
+### Fine Tuning
+If binding affinity routes inputs to experts via cluster ID, then fine tuning a transformer MoE should resemble fine tuning an "ensemble of ensembles."
 
-In summary, fine-tuning was a process of learning an entirely new router, plus new weights for the weighted average. Now when this is considered, each input gets to yield fundamentally different outputs. This was done to enable exceedingly higher accuracy after fine-tuning. Imagine an expert that's primarily trained on one set of data, getting to vote on something completely unrelated but similar in some in-apparent way.. and the resulting next token prediction ends up more accurate. 
+I learned weighted averages with a hypernetwork. Training the router was a linear projection enabling the 1NN classifier to route to any expert. In an LLM, the input to experts would still be original embeddings rather than modified ones.
 
-I also like the idea of being able to fine-tune with a small set of weights for the weighted averages plus a somewhat small set of weights for the new router. Then I'd train the router first and the weighted averages second.
+Fine tuning became: learn a new router, plus new weights for the weighted average. This enables fundamentally different outputs per input. An expert trained primarily on one data distribution might vote on something superficially unrelated but subtly similar, improving next token prediction.
+
+I like the idea of fine tuning with a small weight set for averages plus a somewhat small weight set for the router. In an RL setting, I'd train the router and the weighted averages.
+
+### Conclusion
+I never set out to build a Mixture of Experts system. I was just trying to make a little ball jump through spinning circles without the phone exploding.
+
+But by repeatedly applying the same principle (decompose the problem space, then conquer each piece separately) whether through spatial hashes, clustering, or ensembling, I accidentally walked the exact same path that the most powerful language models in 2026 are now using at scale.
+
+Sometimes the best discoveries aren’t planned. They’re just the natural consequence of refusing to accept “impossible” as an answer.
