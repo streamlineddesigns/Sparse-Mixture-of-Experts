@@ -29,7 +29,7 @@ While my original key ID formula worked, I eventually rewrote it. I'd designed i
 The approach: divide each coordinate by cell size, then truncate to integers. With a cell size of 10, the point (50, −30) maps to cell (5, −3). The point (55.5, −33.3) also maps to (5, −3) after division and truncation. This became my go to method for spatial hashing.
 
 ### Collision Detection
-Around this time, I was contracting for Color Switch. Coincidentally, I was tackling a major problem: lag on low end mobile devices. I'd made several attempts, each yielding incremental improvements, but never eliminating lag entirely.
+Around this time, I was contracting for Color Surge. Coincidentally, I was tackling a major problem: lag on low end mobile devices. I'd made several attempts, each yielding incremental improvements, but never eliminating lag entirely.
 
 One late night, while profiling performance, I noticed something I'd overlooked: collision detection was spiking CPU usage at specific moments. Specifically when the player passed groups of circles. Each circle used polygon colliders to match its visual shape precisely. Every circle had four color segments, meaning four polygon colliders, each defined by 20 vertices.
 
@@ -40,9 +40,9 @@ My solution: spatial partitioning. I inserted all obstacles into a spatial hash,
 The performance gains were dramatic. Low end devices went from unplayable to smooth. On a mid range PC, my stress test scene previously capped at 30 complex obstacles before becoming unplayable. After integrating spatial hashing, hundreds of obstacles ran without performance loss.
 
 ### Procedural Content Generation
-Another project emerged: procedurally generating levels for Color Switch. The number of times I returned to the drawing board was staggering, though the final solution seems straightforward in retrospect.
+Another project emerged: procedurally generating levels for Color Surge. The number of times I returned to the drawing board was staggering, though the final solution seems straightforward in retrospect.
 
-Levels in Color Switch are categorized as easy, medium, or hard, each containing a specific number of obstacles. Each obstacle has unique configurations: colors, colliders, names, and more. A level designer manually determined which obstacles appeared in each level.
+Levels in Color Surge are categorized as easy, medium, or hard, each containing a specific number of obstacles. Each obstacle has unique configurations: colors, colliders, names, and more. A level designer manually determined which obstacles appeared in each level.
 
 ### Obstacle Encoding
 Automating this required analytical thinking. To use obstacles in an algorithm, I needed to encode them into a computable format. Rather than referencing obstacles by name, I assigned each a numeric ID (1–3000), then cast that ID to a character. Each obstacle now had a single character representation that was both human readable and computationally useful.
@@ -81,7 +81,7 @@ Before building the training environment, I prepared the feature and weight vect
 When the training loop ran ie splicing arrays, keeping top performers, I watched accuracy climb. It plateaued around 70%.
 
 ### Difficulty Curve
-To generate levels, I combined similarity scoring with difficulty scoring. After training, I observed minimum and maximum level difficulty scores per game mode (Color Switch has several). Target obstacle counts were also known.
+To generate levels, I combined similarity scoring with difficulty scoring. After training, I observed minimum and maximum level difficulty scores per game mode (Color Surge has several). Target obstacle counts were also known.
 
 For determining a level's target difficulty, I considered training another perceptron mapping level number to difficulty score. But I noticed that easing functions, given min/max difficulty scores and level percentage, closely approximated real values. An easing function sufficed.
 
@@ -110,11 +110,11 @@ I hypothesized that labeling obvious obstacles as easy, medium, or hard, and add
 The outcome was fascinating: the reinforcement learning problem partially became supervised learning through additional loss terms. Accuracy rose to 92%. More importantly, levels consistently matched their target difficulty. That extra signal went a long way. I considered the PCG project complete.
 
 ### Machine Learning Bots
-I decided to test my skills further. A Color Switch executive was meeting a potential investor abroad. Many companies perceived increased value where machine learning existed. We already had ML for level generation.
+I decided to test my skills further. A Color Surge executive was meeting a potential investor abroad. Many companies perceived increased value where machine learning existed. We already had ML for level generation.
 
-I wanted to go further. Rovio Studios was combining procedural generation with ML bots to test levels. A natural next step for Color Switch.
+I wanted to go further. Rovio Studios was combining procedural generation with ML bots to test levels. A natural next step for Color Surge.
 
-I dove deeper into reinforcement learning, though I started simpler. If genetic algorithms could train networks to play Flappy Bird, they could work for Color Switch. I assumed this would be quick.
+I dove deeper into reinforcement learning, though I started simpler. If genetic algorithms could train networks to play Flappy Bird, they could work for Color Surge. I assumed this would be quick.
 
 I was wrong.
 
@@ -132,7 +132,7 @@ With velocity included, the imitation learning bot outperformed my RL bot. A pur
 ### ML-Agents
 I watched a video where someone discussing boids and spatial hashing trained LSTM networks using the NEAT algorithm. LSTMs seemed better suited for this temporal problem.
 
-I switched to Unity ML-Agents. Color Switch runs on Unity, making it an obvious choice. LSTMs were available, and training used Proximal Policy Optimization (PPO).
+I switched to Unity ML-Agents. Color Surge runs on Unity, making it an obvious choice. LSTMs were available, and training used Proximal Policy Optimization (PPO).
 
 The next five months were intense.
 
